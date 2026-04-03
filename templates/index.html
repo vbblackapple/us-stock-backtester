@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAI 美股回測系統</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>KAI 美股回測系統</h1>
+        <p>SMA 交叉策略回測分析平台</p>
+    </div>
+
+    <div class="container">
+        <!-- 參數設定 -->
+        <div class="card">
+            <div class="card-title">參數設定</div>
+            <form id="backtest-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="ticker">股票代碼</label>
+                        <input type="text" id="ticker" value="AAPL" placeholder="例: AAPL, TSLA" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="start">開始日期</label>
+                        <input type="date" id="start" value="2020-01-01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end">結束日期</label>
+                        <input type="date" id="end" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cash">初始資金 (USD)</label>
+                        <input type="number" id="cash" value="100000" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="short_window">短期 SMA (天)</label>
+                        <input type="number" id="short_window" value="20" min="2" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="long_window">長期 SMA (天)</label>
+                        <input type="number" id="long_window" value="50" min="3" required>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button type="submit" class="btn-primary" id="submit-btn">
+                        <span id="btn-text">開始回測</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="error-msg"></div>
+
+        <!-- Results -->
+        <div id="results">
+            <!-- 績效摘要 -->
+            <div class="card">
+                <div class="card-title">績效摘要</div>
+                <div class="metrics-grid" id="metrics-grid"></div>
+                <div class="metrics-detail" id="metrics-detail"></div>
+            </div>
+
+            <!-- 權益曲線 -->
+            <div class="card">
+                <div class="card-title">權益曲線</div>
+                <div class="chart-wrapper">
+                    <canvas id="equity-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- 交易明細 -->
+            <div class="card">
+                <div class="card-title">交易明細</div>
+                <div style="overflow-x: auto;">
+                    <table class="trade-table">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>動作</th>
+                                <th class="text-right">價格</th>
+                                <th class="text-right">股數</th>
+                                <th class="text-right">剩餘現金</th>
+                                <th class="text-right">總權益</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trade-body"></tbody>
+                    </table>
+                </div>
+                <div id="no-trades" style="display:none; text-align:center; padding:1.5rem; color:var(--color-text-secondary);">
+                    期間內無交易紀錄
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">KAI 美股回測系統 &copy; 2026</div>
+
+    <script>
+        // 結束日期預設為美東時間今天
+        document.getElementById('end').value = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+
+        let chart = null;
+
+        function fmt(n) {
+            return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        document.getElementById('backtest-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const errorEl = document.getElementById('error-msg');
+            const resultsEl = document.getElementById('results');
+
+            // Loading state
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span> 回測中...';
+            errorEl.style.display = 'none';
+            resultsEl.style.display = 'none';
+
+            const payload = {
+                ticker: document.getElementById('ticker').value.trim().toUpperCase(),
+                start: document.getElementById('start').value,
+                end: document.getElementById('end').value,
+                cash: parseFloat(document.getElementById('cash').value),
+                short_window: parseInt(document.getElementById('short_window').value),
+                long_window: parseInt(document.getElementById('long_window').value),
+            };
+
+            try {
+                const resp = await fetch('/api/backtest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    throw new Error(data.error || '回測失敗');
+                }
+
+                renderResults(data);
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = '開始回測';
+            }
+        });
+
+        function renderResults(data) {
+            const resultsEl = document.getElementById('results');
+            resultsEl.style.display = 'block';
+
+            // Metrics
+            const m = data.metrics;
+            const grid = document.getElementById('metrics-grid');
+            const detail = document.getElementById('metrics-detail');
+
+            const cards = [
+                { label: '年化報酬率', value: m['年化報酬率 (CAGR)'], colorClass: parseFloat(m['年化報酬率 (CAGR)']) >= 0 ? 'positive' : 'negative' },
+                { label: '夏普比率', value: m['夏普比率 (Sharpe)'], colorClass: 'neutral' },
+                { label: '最大回撤', value: m['最大回撤 (Max Drawdown)'], colorClass: 'negative' },
+                { label: '總交易次數', value: m['總交易次數'], colorClass: 'neutral' },
+            ];
+
+            grid.innerHTML = cards.map(c => `
+                <div class="metric-item">
+                    <div class="metric-value ${c.colorClass}">${c.value}</div>
+                    <div class="metric-label">${c.label}</div>
+                </div>
+            `).join('');
+
+            detail.innerHTML = `
+                <span>初始資金: <strong>$${fmt(m['初始資金'])}</strong></span>
+                <span>最終權益: <strong>$${fmt(m['最終權益'])}</strong></span>
+                <span>年化波動率: <strong>${m['年化波動率']}</strong></span>
+            `;
+
+            // Chart
+            renderChart(data.equity_curve, data.trades);
+
+            // Trade table
+            const tbody = document.getElementById('trade-body');
+            const noTrades = document.getElementById('no-trades');
+
+            if (data.trades.length === 0) {
+                tbody.innerHTML = '';
+                noTrades.style.display = 'block';
+            } else {
+                noTrades.style.display = 'none';
+                tbody.innerHTML = data.trades.map(t => `
+                    <tr>
+                        <td>${t.date}</td>
+                        <td><span class="badge badge-${t.action.toLowerCase()}">${t.action}</span></td>
+                        <td class="text-right">$${fmt(t.price)}</td>
+                        <td class="text-right">${t.shares.toLocaleString()}</td>
+                        <td class="text-right">$${fmt(t.cash_after)}</td>
+                        <td class="text-right">$${fmt(t.equity_after)}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Scroll to results
+            resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderChart(equityCurve, trades) {
+            const ctx = document.getElementById('equity-chart').getContext('2d');
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const buyPoints = trades
+                .filter(t => t.action === 'BUY')
+                .map(t => ({ x: t.date, y: t.equity_after }));
+
+            const sellPoints = trades
+                .filter(t => t.action === 'SELL')
+                .map(t => ({ x: t.date, y: t.equity_after }));
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: equityCurve.dates,
+                    datasets: [
+                        {
+                            label: '權益曲線',
+                            data: equityCurve.values,
+                            borderColor: '#0f3460',
+                            backgroundColor: 'rgba(15, 52, 96, 0.06)',
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.1,
+                        },
+                        {
+                            label: '買入',
+                            data: buyPoints,
+                            type: 'scatter',
+                            pointStyle: 'triangle',
+                            pointRadius: 8,
+                            pointBackgroundColor: '#34c759',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                        },
+                        {
+                            label: '賣出',
+                            data: sellPoints,
+                            type: 'scatter',
+                            pointStyle: 'triangle',
+                            rotation: 180,
+                            pointRadius: 8,
+                            pointBackgroundColor: '#ff3b30',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: { size: 12 },
+                            },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    if (ctx.parsed.y != null) {
+                                        return ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                    return '';
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'month',
+                                displayFormats: { month: 'yyyy-MM' },
+                            },
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11 },
+                                color: '#6e6e73',
+                                maxTicksLimit: 10,
+                            },
+                        },
+                        y: {
+                            grid: { color: 'rgba(0,0,0,0.04)' },
+                            ticks: {
+                                font: { size: 11 },
+                                color: '#6e6e73',
+                                callback: function(value) {
+                                    return '$' + (value / 1000).toFixed(0) + 'k';
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+        }
+    </script>
+</body>
+</html>
