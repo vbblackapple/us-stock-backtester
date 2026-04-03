@@ -13,6 +13,9 @@ class Signal(Enum):
 class Strategy(ABC):
     """交易策略抽象基底類別。"""
 
+    allow_partial_buy: bool = False
+    buy_amount: float | None = None
+
     def init(self, data: pd.DataFrame) -> None:
         """預計算指標，回測開始前呼叫一次。可選擇覆寫。"""
         pass
@@ -191,7 +194,44 @@ class MeanReversionStrategy(Strategy):
         return Signal.HOLD
 
 
+class BuyAndHoldStrategy(Strategy):
+    """買入持有策略：第一天買入後一直持有不動。"""
+
+    def on_data(self, data: pd.DataFrame, current_index: int) -> Signal:
+        if current_index == 0:
+            return Signal.BUY
+        return Signal.HOLD
+
+
+class DcaStrategy(Strategy):
+    """定期定額策略：每隔固定交易日投入固定金額。"""
+
+    allow_partial_buy = True
+
+    def __init__(self, interval: int = 20, buy_amount: float = 1000.0):
+        self.interval = interval
+        self.buy_amount = buy_amount
+
+    def on_data(self, data: pd.DataFrame, current_index: int) -> Signal:
+        if current_index % self.interval == 0:
+            return Signal.BUY
+        return Signal.HOLD
+
+
 STRATEGY_REGISTRY = {
+    "buy_and_hold": {
+        "class": BuyAndHoldStrategy,
+        "name": "買入持有",
+        "params": [],
+    },
+    "dca": {
+        "class": DcaStrategy,
+        "name": "定期定額",
+        "params": [
+            {"key": "interval", "label": "買入間隔 (交易日)", "type": "int", "default": 20, "min": 1},
+            {"key": "buy_amount", "label": "每次投入金額 (USD)", "type": "float", "default": 1000.0, "min": 1, "step": 100},
+        ],
+    },
     "sma_crossover": {
         "class": SmaCrossoverStrategy,
         "name": "SMA 交叉",

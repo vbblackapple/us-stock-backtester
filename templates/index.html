@@ -338,7 +338,7 @@ body {
 <body>
     <div class="header">
         <h1>KAI 美股回測系統</h1>
-        <p id="subtitle">SMA 交叉策略回測分析平台</p>
+        <p id="subtitle">買入持有策略回測分析平台</p>
     </div>
 
     <div class="container">
@@ -349,6 +349,8 @@ body {
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label for="strategy">交易策略</label>
                     <select id="strategy">
+                        <option value="buy_and_hold">買入持有</option>
+                        <option value="dca">定期定額</option>
                         <option value="sma_crossover">SMA 交叉</option>
                         <option value="rsi">RSI 超買超賣</option>
                         <option value="bollinger">布林通道突破</option>
@@ -376,8 +378,27 @@ body {
                     </div>
                 </div>
 
+                <!-- 買入持有（無參數） -->
+                <div class="strategy-params" data-strategy="buy_and_hold">
+                    <div class="form-group">
+                        <label style="color:var(--color-text-secondary); font-size:0.85rem;">第一天全額買入後持有不動，無額外參數</label>
+                    </div>
+                </div>
+
+                <!-- 定期定額 -->
+                <div class="strategy-params" data-strategy="dca" style="display:none;">
+                    <div class="form-group">
+                        <label for="dca_interval">買入間隔 (交易日)</label>
+                        <input type="number" id="dca_interval" value="20" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="dca_buy_amount">每次投入金額 (USD)</label>
+                        <input type="number" id="dca_buy_amount" value="1000" min="1" step="100">
+                    </div>
+                </div>
+
                 <!-- SMA 交叉 -->
-                <div class="strategy-params" data-strategy="sma_crossover">
+                <div class="strategy-params" data-strategy="sma_crossover" style="display:none;">
                     <div class="form-group">
                         <label for="short_window">短期 SMA (天)</label>
                         <input type="number" id="short_window" value="20" min="2">
@@ -519,6 +540,8 @@ body {
 
         // 策略名稱對照
         const STRATEGY_NAMES = {
+            buy_and_hold: '買入持有',
+            dca: '定期定額',
             sma_crossover: 'SMA 交叉',
             rsi: 'RSI 超買超賣',
             bollinger: '布林通道突破',
@@ -529,6 +552,8 @@ body {
 
         // HTML ID -> API 參數 key 映射
         const PARAM_MAP = {
+            buy_and_hold: {},
+            dca: { dca_interval: 'interval', dca_buy_amount: 'buy_amount' },
             sma_crossover: { short_window: 'short_window', long_window: 'long_window' },
             rsi: { rsi_period: 'period', oversold: 'oversold', overbought: 'overbought' },
             bollinger: { bb_period: 'period', num_std: 'num_std' },

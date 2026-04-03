@@ -61,14 +61,17 @@ class Backtester:
 
             signal = self.strategy.on_data(self.data, i)
 
-            if signal == Signal.BUY and shares == 0:
-                shares = int(cash // close)
-                if shares > 0:
-                    cash -= shares * close
+            if signal == Signal.BUY and (shares == 0 or self.strategy.allow_partial_buy):
+                buy_budget = self.strategy.buy_amount if self.strategy.buy_amount else cash
+                buy_budget = min(buy_budget, cash)
+                new_shares = int(buy_budget // close)
+                if new_shares > 0:
+                    shares += new_shares
+                    cash -= new_shares * close
                     equity = cash + shares * close
                     trade_log.append(TradeRecord(
                         date=date, action="BUY", price=close,
-                        shares=shares, cash_after=cash, equity_after=equity,
+                        shares=new_shares, cash_after=cash, equity_after=equity,
                     ))
 
             elif signal == Signal.SELL and shares > 0:
