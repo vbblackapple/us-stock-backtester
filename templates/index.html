@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAI 美股回測系統</title>
+    <title>美股回測系統</title>
     <style>
 :root {
     --color-primary: #1a1a2e;
@@ -39,21 +39,14 @@ body {
 .header {
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
     color: #fff;
-    padding: 2.5rem 1.5rem;
+    padding: 1.25rem 1.5rem;
     text-align: center;
 }
 
 .header h1 {
-    font-size: 1.75rem;
+    font-size: 1.25rem;
     font-weight: 700;
     letter-spacing: 0.02em;
-    margin-bottom: 0.25rem;
-}
-
-.header p {
-    font-size: 0.95rem;
-    opacity: 0.75;
-    font-weight: 400;
 }
 
 .container {
@@ -81,7 +74,7 @@ body {
 
 .form-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
 }
 
@@ -312,11 +305,11 @@ body {
     }
 
     .header {
-        padding: 1.75rem 1rem;
+        padding: 1rem;
     }
 
     .header h1 {
-        font-size: 1.4rem;
+        font-size: 1.1rem;
     }
 
     .card {
@@ -337,8 +330,7 @@ body {
 </head>
 <body>
     <div class="header">
-        <h1>KAI 美股回測系統</h1>
-        <p id="subtitle">買入持有策略回測分析平台</p>
+        <h1>美股回測系統</h1>
     </div>
 
     <div class="container">
@@ -365,16 +357,16 @@ body {
                         <input type="text" id="ticker" value="AAPL" placeholder="例: AAPL, TSLA" required>
                     </div>
                     <div class="form-group">
+                        <label for="cash">初始資金 (USD)</label>
+                        <input type="number" id="cash" value="100000" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
                         <label for="start">開始日期</label>
                         <input type="date" id="start" value="2020-01-01" required>
                     </div>
                     <div class="form-group">
                         <label for="end">結束日期</label>
                         <input type="date" id="end" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="cash">初始資金 (USD)</label>
-                        <input type="number" id="cash" value="100000" min="1" step="1" required>
                     </div>
                 </div>
 
@@ -392,8 +384,11 @@ body {
                         <input type="number" id="dca_interval" value="20" min="1">
                     </div>
                     <div class="form-group">
-                        <label for="dca_buy_amount">每次投入金額 (USD)</label>
+                        <label for="dca_buy_amount">每期買入金額 (USD)</label>
                         <input type="number" id="dca_buy_amount" value="1000" min="1" step="1">
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label style="font-size:0.8rem; color:var(--color-text-secondary); font-weight:400;">※ 從初始資金中分批投入，現金用完即停止買入</label>
                     </div>
                 </div>
 
@@ -530,7 +525,7 @@ body {
         </div>
     </div>
 
-    <div class="footer">KAI 美股回測系統 &copy; 2026</div>
+    <div class="footer">美股回測系統 &copy; 2026</div>
 
     <script>
         // 結束日期預設為美東時間今天
@@ -568,8 +563,6 @@ body {
             document.querySelectorAll('.strategy-params').forEach(el => {
                 el.style.display = el.dataset.strategy === strategySelect.value ? '' : 'none';
             });
-            document.getElementById('subtitle').textContent =
-                STRATEGY_NAMES[strategySelect.value] + '策略回測分析平台';
         });
 
         function fmt(n) {
