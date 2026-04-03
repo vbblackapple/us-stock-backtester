@@ -108,7 +108,7 @@ body {
 
 .strategy-params {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem;
     margin-top: 1rem;
 }
@@ -378,7 +378,7 @@ body {
                 </div>
 
                 <!-- 定期定額 -->
-                <div class="strategy-params" data-strategy="dca" style="display:none;">
+                <div class="strategy-params" data-strategy="dca" style="display:none; grid-template-columns: repeat(2, 1fr);">
                     <div class="form-group">
                         <label for="dca_interval">買入間隔 (交易日)</label>
                         <input type="number" id="dca_interval" value="20" min="1">
