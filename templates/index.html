@@ -93,7 +93,8 @@ body {
     margin-bottom: 0.4rem;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 0.6rem 0.85rem;
     border: 1px solid var(--color-border);
@@ -105,10 +106,18 @@ body {
     font-family: inherit;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--color-highlight);
     box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.12);
+}
+
+.strategy-params {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
 }
 
 .btn-row {
@@ -288,7 +297,8 @@ body {
 }
 
 @media (max-width: 640px) {
-    .form-grid {
+    .form-grid,
+    .strategy-params {
         grid-template-columns: 1fr;
     }
 
@@ -328,7 +338,7 @@ body {
 <body>
     <div class="header">
         <h1>KAI 美股回測系統</h1>
-        <p>SMA 交叉策略回測分析平台</p>
+        <p id="subtitle">SMA 交叉策略回測分析平台</p>
     </div>
 
     <div class="container">
@@ -336,6 +346,17 @@ body {
         <div class="card">
             <div class="card-title">參數設定</div>
             <form id="backtest-form">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="strategy">交易策略</label>
+                    <select id="strategy">
+                        <option value="sma_crossover">SMA 交叉</option>
+                        <option value="rsi">RSI 超買超賣</option>
+                        <option value="bollinger">布林通道突破</option>
+                        <option value="macd">MACD 交叉</option>
+                        <option value="momentum">動量策略</option>
+                        <option value="mean_reversion">均值回歸</option>
+                    </select>
+                </div>
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="ticker">股票代碼</label>
@@ -353,15 +374,88 @@ body {
                         <label for="cash">初始資金 (USD)</label>
                         <input type="number" id="cash" value="100000" min="1" step="1" required>
                     </div>
+                </div>
+
+                <!-- SMA 交叉 -->
+                <div class="strategy-params" data-strategy="sma_crossover">
                     <div class="form-group">
                         <label for="short_window">短期 SMA (天)</label>
-                        <input type="number" id="short_window" value="20" min="2" required>
+                        <input type="number" id="short_window" value="20" min="2">
                     </div>
                     <div class="form-group">
                         <label for="long_window">長期 SMA (天)</label>
-                        <input type="number" id="long_window" value="50" min="3" required>
+                        <input type="number" id="long_window" value="50" min="3">
                     </div>
                 </div>
+
+                <!-- RSI 超買超賣 -->
+                <div class="strategy-params" data-strategy="rsi" style="display:none;">
+                    <div class="form-group">
+                        <label for="rsi_period">RSI 週期</label>
+                        <input type="number" id="rsi_period" value="14" min="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="oversold">超賣門檻</label>
+                        <input type="number" id="oversold" value="30" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="overbought">超買門檻</label>
+                        <input type="number" id="overbought" value="70" min="1">
+                    </div>
+                </div>
+
+                <!-- 布林通道突破 -->
+                <div class="strategy-params" data-strategy="bollinger" style="display:none;">
+                    <div class="form-group">
+                        <label for="bb_period">均線週期</label>
+                        <input type="number" id="bb_period" value="20" min="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="num_std">標準差倍數</label>
+                        <input type="number" id="num_std" value="2.0" min="0.1" step="0.1">
+                    </div>
+                </div>
+
+                <!-- MACD 交叉 -->
+                <div class="strategy-params" data-strategy="macd" style="display:none;">
+                    <div class="form-group">
+                        <label for="macd_fast">快線週期</label>
+                        <input type="number" id="macd_fast" value="12" min="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="macd_slow">慢線週期</label>
+                        <input type="number" id="macd_slow" value="26" min="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="macd_signal">信號線週期</label>
+                        <input type="number" id="macd_signal" value="9" min="2">
+                    </div>
+                </div>
+
+                <!-- 動量策略 -->
+                <div class="strategy-params" data-strategy="momentum" style="display:none;">
+                    <div class="form-group">
+                        <label for="mom_lookback">回顧天數</label>
+                        <input type="number" id="mom_lookback" value="20" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="mom_threshold">漲幅門檻 (%)</label>
+                        <input type="number" id="mom_threshold" value="5.0" min="0.1" step="0.1">
+                    </div>
+                </div>
+
+                <!-- 均值回歸 -->
+                <div class="strategy-params" data-strategy="mean_reversion" style="display:none;">
+                    <div class="form-group">
+                        <label for="mr_period">均線週期</label>
+                        <input type="number" id="mr_period" value="20" min="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="mr_threshold">偏離門檻 (標準差)</label>
+                        <input type="number" id="mr_threshold" value="2.0" min="0.1" step="0.1">
+                    </div>
+                </div>
+
                 <div class="btn-row">
                     <button type="submit" class="btn-primary" id="submit-btn">
                         <span id="btn-text">開始回測</span>
@@ -423,6 +517,36 @@ body {
 
         let chart = null;
 
+        // 策略名稱對照
+        const STRATEGY_NAMES = {
+            sma_crossover: 'SMA 交叉',
+            rsi: 'RSI 超買超賣',
+            bollinger: '布林通道突破',
+            macd: 'MACD 交叉',
+            momentum: '動量策略',
+            mean_reversion: '均值回歸',
+        };
+
+        // HTML ID -> API 參數 key 映射
+        const PARAM_MAP = {
+            sma_crossover: { short_window: 'short_window', long_window: 'long_window' },
+            rsi: { rsi_period: 'period', oversold: 'oversold', overbought: 'overbought' },
+            bollinger: { bb_period: 'period', num_std: 'num_std' },
+            macd: { macd_fast: 'fast', macd_slow: 'slow', macd_signal: 'signal' },
+            momentum: { mom_lookback: 'lookback', mom_threshold: 'threshold' },
+            mean_reversion: { mr_period: 'period', mr_threshold: 'threshold' },
+        };
+
+        // 策略切換
+        const strategySelect = document.getElementById('strategy');
+        strategySelect.addEventListener('change', () => {
+            document.querySelectorAll('.strategy-params').forEach(el => {
+                el.style.display = el.dataset.strategy === strategySelect.value ? '' : 'none';
+            });
+            document.getElementById('subtitle').textContent =
+                STRATEGY_NAMES[strategySelect.value] + '策略回測分析平台';
+        });
+
         function fmt(n) {
             return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
@@ -441,14 +565,20 @@ body {
             errorEl.style.display = 'none';
             resultsEl.style.display = 'none';
 
+            const selectedStrategy = strategySelect.value;
             const payload = {
                 ticker: document.getElementById('ticker').value.trim().toUpperCase(),
                 start: document.getElementById('start').value,
                 end: document.getElementById('end').value,
                 cash: parseFloat(document.getElementById('cash').value),
-                short_window: parseInt(document.getElementById('short_window').value),
-                long_window: parseInt(document.getElementById('long_window').value),
+                strategy: selectedStrategy,
             };
+
+            // 加入策略專屬參數
+            const paramMap = PARAM_MAP[selectedStrategy];
+            for (const [elemId, paramKey] of Object.entries(paramMap)) {
+                payload[paramKey] = parseFloat(document.getElementById(elemId).value);
+            }
 
             try {
                 const resp = await fetch('/api/backtest', {

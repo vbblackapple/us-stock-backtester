@@ -3,7 +3,7 @@ from dataclasses import asdict
 from flask import Flask, render_template, request, jsonify
 
 from backtest import fetch_data, Backtester, compute_metrics
-from strategy import SmaCrossoverStrategy
+from strategy import STRATEGY_REGISTRY
 
 app = Flask(__name__)
 
@@ -21,30 +21,39 @@ def run_backtest():
     start = body.get("start", "")
     end = body.get("end", "")
     cash = body.get("cash", 100_000)
-    short_window = body.get("short_window", 20)
-    long_window = body.get("long_window", 50)
+    strategy_key = body.get("strategy", "sma_crossover")
 
     # 驗證
     if not ticker:
         return jsonify(error="請輸入股票代碼"), 400
     if not start or not end:
         return jsonify(error="請輸入完整的日期範圍"), 400
+    if strategy_key not in STRATEGY_REGISTRY:
+        return jsonify(error=f"未知的策略: {strategy_key}"), 400
 
     try:
         cash = float(cash)
-        short_window = int(short_window)
-        long_window = int(long_window)
     except (TypeError, ValueError):
         return jsonify(error="參數格式不正確"), 400
-
     if cash <= 0:
         return jsonify(error="初始資金必須大於 0"), 400
-    if short_window >= long_window:
-        return jsonify(error="短期 SMA 天數必須小於長期 SMA 天數"), 400
+
+    # 動態提取策略參數
+    reg = STRATEGY_REGISTRY[strategy_key]
+    strategy_params = {}
+    try:
+        for p in reg["params"]:
+            raw = body.get(p["key"], p["default"])
+            if p["type"] == "int":
+                strategy_params[p["key"]] = int(raw)
+            elif p["type"] == "float":
+                strategy_params[p["key"]] = float(raw)
+    except (TypeError, ValueError):
+        return jsonify(error="策略參數格式不正確"), 400
 
     try:
         data = fetch_data(ticker, start, end)
-        strategy = SmaCrossoverStrategy(short_window, long_window)
+        strategy = reg["class"](**strategy_params)
         backtester = Backtester(data, strategy, cash)
         result = backtester.run()
         metrics = compute_metrics(result)
